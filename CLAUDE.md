@@ -1,41 +1,41 @@
-# Aztec Private Voting — 開發者筆記
+# Aztec Private Voting — Dev Notes
 
-## 每次開 session 必做
+## Session setup (required every time)
 
 ```bash
 export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh"
 export PATH="/opt/homebrew/bin:$HOME/.aztec/current/bin:$HOME/.aztec/current/node_modules/.bin:$HOME/.aztec/bin:$PATH"
 ```
 
-## 跑測試（不需要 sandbox）
+## Run tests (no sandbox needed)
 
 ```bash
 cd ~/aztec-private-voting && aztec test
 ```
 
-## 啟動 local network（M2 部署時才需要）
+## Start local network (only needed for M2 deployment)
 
 ```bash
 aztec start --local-network
-# 等出現 "Aztec Server listening on port 8080"
+# Wait for "Aztec Server listening on port 8080"
 ```
 
-## 里程碑
+## Milestones
 
-- **M1 完成**（2026-06-24）：Noir 合約 + 11/11 測試，已 push GitHub
-- **M2 待做**：TypeScript e2e + 部署到 Aztec testnet（等 V5 上線後）
-- **M3 待做**：Grant 申請 + mainnet 部署
+- **M1 done** (2026-06-24): Noir contract + 11/11 tests passing, pushed to GitHub
+- **M2 todo**: TypeScript e2e script + deploy to Aztec testnet (after V5 goes live)
+- **M3 todo**: Grant application + mainnet deployment
 
-## 已知陷阱
+## Known gotchas
 
-- Noir 註解不能有非 ASCII 字元（em dash、中文會報錯）
-- Noir package name 不能有連字符，用底線
-- macOS 預設 Bash 3.2 不夠新，aztec 需要 Homebrew bash 5（`/opt/homebrew/bin/bash`）
-- 安裝腳本要用 `curl -sL`，`curl -s` 不跟隨 redirect
+- Noir comments must be ASCII only — em dashes and non-ASCII characters cause compile errors
+- Noir package names cannot contain hyphens — use underscores
+- macOS ships Bash 3.2 which is too old; aztec requires Bash 5 from Homebrew (`/opt/homebrew/bin/bash`)
+- Use `curl -sL` to install, not `curl -s` — the `-L` flag is required to follow redirects
 
-## 版本
+## Versions
 
-- aztec：4.3.1
-- Noir：1.0.0-beta.21
-- Node.js：24.12.0（nvm）
-- Bash：5.3.15（Homebrew）
+- aztec: 4.3.1
+- Noir: 1.0.0-beta.21
+- Node.js: 24.12.0 (via nvm)
+- Bash: 5.3.15 (via Homebrew)
