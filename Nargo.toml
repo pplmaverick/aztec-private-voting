@@ -1,0 +1,2 @@
+[workspace]
+members = ["aztec-private-voting_contract", "aztec-private-voting_test"]
