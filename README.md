@@ -1,5 +1,6 @@
 # Aztec Private Voting
 
+[![CI](https://github.com/pplmaverick/aztec-private-voting/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/pplmaverick/aztec-private-voting/actions/workflows/test.yml)
 ![Network](https://img.shields.io/badge/Aztec_Local_Network-v4.3.1-blue)
 ![Noir](https://img.shields.io/badge/Noir-1.0.0--beta.21-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)

@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Aztec TXe Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install Aztec CLI v4.3.1
+        run: |
+          curl -sL https://install.aztec.network | VERSION=4.3.1 bash
+          echo "$HOME/.aztec/bin" >> $GITHUB_PATH
+          echo "$HOME/.aztec/current/bin" >> $GITHUB_PATH
+          echo "$HOME/.aztec/current/node_modules/.bin" >> $GITHUB_PATH
+
+      - name: Verify Aztec installation
+        run: aztec --version
+
+      - name: Run Aztec TXe tests
+        run: aztec test
