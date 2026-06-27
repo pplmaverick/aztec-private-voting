@@ -27,8 +27,16 @@ jobs:
           echo "$HOME/.aztec/current/bin" >> $GITHUB_PATH
           echo "$HOME/.aztec/current/node_modules/.bin" >> $GITHUB_PATH
 
-      - name: Verify Aztec installation
-        run: aztec --version
+      - name: Debug paths
+        run: |
+          echo "=== PATH ===" && echo $PATH
+          echo "=== which aztec ===" && which aztec || echo "not found"
+          echo "=== which nargo ===" && which nargo || echo "not found"
+          echo "=== ~/.aztec/current/bin ===" && ls ~/.aztec/current/bin/ 2>/dev/null || echo "empty/missing"
+          echo "=== ~/.aztec/bin ===" && ls ~/.aztec/bin/ 2>/dev/null || echo "empty/missing"
+          echo "=== find nargo ===" && find ~/.aztec -name "nargo" -type f 2>/dev/null
 
       - name: Run Aztec TXe tests
-        run: aztec test
+        run: |
+          export PATH="$HOME/.aztec/bin:$HOME/.aztec/current/bin:$HOME/.aztec/current/node_modules/.bin:$PATH"
+          aztec test
