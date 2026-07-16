@@ -48,6 +48,15 @@ aztec start --local-network
 - Noir package names cannot contain hyphens — use underscores
 - macOS ships Bash 3.2 which is too old; aztec requires Bash 5 from Homebrew (`/opt/homebrew/bin/bash`)
 - Use `curl -sL` to install, not `curl -s` — the `-L` flag is required to follow redirects
+- **aztec.js v5.0.0**: `AztecAddress.fromString()` was removed — the unchecked constructor is now
+  `AztecAddress.fromStringUnsafe()` (breaking rename, see v5.0.0 release notes). `Fr`/`GrumpkinScalar`
+  still have a plain `.fromString()` — only `AztecAddress` got the `Unsafe` suffix.
+- **aztec.js v5.0.0**: `wallet.getContractMetadata(address).instance` only reflects contracts the
+  wallet already knows about locally — it does NOT fetch a fresh EmbeddedWallet's unknown contract
+  from the node, even if it's live on-chain (`isContractPublished` is the field that tells you that).
+  To reconnect to a contract deployed in a different session/CLI, reconstruct the instance with
+  `getContractInstanceFromInstantiationParams(artifact, { constructorArtifact, constructorArgs, deployer, salt })`
+  using the original deployment parameters, then `wallet.registerContract(instance, artifact)`.
 
 ## Versions
 

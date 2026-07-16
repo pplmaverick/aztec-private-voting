@@ -52,6 +52,25 @@ aztec-wallet deploy \
 | create-account (dev-wallet) | 0x06f31da23714949952a3bab8c5ef75bae86d6eeb2ce7e0f96db408060a660309 |
 | deploy PrivateVoting | 0x0a2479f50526ce127cc774a1e3ff2f73f8f5db659859aa91202ebae3d11719ed |
 
+## E2E Test Results
+
+### 2026-07-16 — full flow via `e2e/src/e2e.ts` (aztec.js EmbeddedWallet)
+
+| Operation | Tx Hash | Block |
+|---|---|---|
+| create_poll({id:1}) | 0x1dfe07b04634457d6481f1a94c43d411ea93ab5b339eb96a0a7a98d3232f60d7 | 3196 |
+| cast_vote({id:1}, 1) — YES, dev-wallet | 0x220a0dd669c017574d238ace9c030fb3473ad6f66e01f4e980844a618b6e74e0 | 3197 |
+| cast_vote({id:1}, 0) — NO, second voter | 0x2274b12367a7ecf783457efe5a46488fa3742eb601ee8e7decf2611353a896da | 3198 |
+| end_poll({id:1}) | 0x17bf2c953119ed60fb548d618210236e8e501b5a9686b76b9c68adde9d4372ec | 3199 |
+
+**Second voter** (initializerless account, no deployment tx): `0x004d8858d56236b7c3b8d569d072079c9157b2a4ad117909c22afbeac1230829`
+
+| Query | Result |
+|---|---|
+| get_vote_count({id:1}, 1) — YES | 1 |
+| get_vote_count({id:1}, 0) — NO | 1 |
+| is_poll_ended({id:1}) | true |
+
 ## Contract Verification
 
 Source verification attempted on Aztecscan but timed out due to

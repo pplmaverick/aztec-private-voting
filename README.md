@@ -1,8 +1,8 @@
 # Aztec Private Voting
 
 [![CI](https://github.com/pplmaverick/aztec-private-voting/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/pplmaverick/aztec-private-voting/actions/workflows/test.yml)
-![Network](https://img.shields.io/badge/Aztec_Local_Network-v4.3.1-blue)
-![Noir](https://img.shields.io/badge/Noir-1.0.0--beta.21-purple)
+![Network](https://img.shields.io/badge/Aztec_Local_Network-v5.0.0-blue)
+![Noir](https://img.shields.io/badge/Noir-1.0.0--beta.22-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 A privacy-preserving voting system built on Aztec Network using Noir.
@@ -14,8 +14,8 @@ see who voted for what.
 | Field | Value |
 |---|---|
 | Network | Aztec Local Network |
-| Aztec Version | 4.3.1 |
-| Noir Version | 1.0.0-beta.21 |
+| Aztec Version | 5.0.0 |
+| Noir Version | 1.0.0-beta.22 |
 | Contract | Deployed via `aztec start --local-network` |
 | Tests | 11/11 passing |
 
@@ -179,7 +179,7 @@ brew install bash
 
 **Node.js version requirement**
 
-Aztec 4.3.1 requires Node.js >= 24.12.0. Install via nvm:
+Aztec 5.0.0 requires Node.js >= 24.12.0. Install via nvm:
 
 ```bash
 nvm install 24.12.0 && nvm alias default 24.12.0
@@ -202,7 +202,7 @@ app-siloed nullifier hiding key (`nhk`). This is safer and more auditable.
 
 | Layer | Technology |
 |---|---|
-| Smart contract | Noir 1.0.0-beta.21 (aztec-nr v4.3.1) |
+| Smart contract | Noir 1.0.0-beta.22 (aztec-nr v5.0.0) |
 | Proving backend | Barretenberg (UltraHonk) |
 | Development | aztec-nargo + aztec CLI |
 | Test framework | TXE (Testing Execution Environment) |

@@ -20,9 +20,9 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Install Aztec CLI v4.3.1
+      - name: Install Aztec CLI v5.0.0
         run: |
-          curl -sL https://install.aztec.network | VERSION=4.3.1 bash
+          curl -sL https://install.aztec.network | VERSION=5.0.0 bash
           echo "$HOME/.aztec/bin" >> $GITHUB_PATH
           echo "$HOME/.aztec/current/bin" >> $GITHUB_PATH
           echo "$HOME/.aztec/current/node_modules/.bin" >> $GITHUB_PATH
