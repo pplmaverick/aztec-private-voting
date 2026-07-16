@@ -3,5 +3,5 @@ name = "private_voting_test"
 type = "lib"
 
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="v4.3.1", directory="aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-nr", tag="v5.0.0", directory="aztec" }
 private_voting_contract = { path = "../aztec-private-voting_contract" }
