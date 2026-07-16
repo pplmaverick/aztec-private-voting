@@ -51,3 +51,10 @@ aztec-wallet deploy \
 |---|---|
 | create-account (dev-wallet) | 0x06f31da23714949952a3bab8c5ef75bae86d6eeb2ce7e0f96db408060a660309 |
 | deploy PrivateVoting | 0x0a2479f50526ce127cc774a1e3ff2f73f8f5db659859aa91202ebae3d11719ed |
+
+## Contract Verification
+
+Source verification attempted on Aztecscan but timed out due to
+aztec-packages monorepo clone size (~12k files). Known infrastructure
+limitation, not a code issue. Re-attempt after Aztecscan improves
+compilation worker capacity.
