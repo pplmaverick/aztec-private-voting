@@ -1,7 +1,7 @@
 # Aztec Private Voting
 
 [![CI](https://github.com/pplmaverick/aztec-private-voting/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/pplmaverick/aztec-private-voting/actions/workflows/test.yml)
-![Network](https://img.shields.io/badge/Aztec_Local_Network-v5.0.0-blue)
+![Network](https://img.shields.io/badge/Aztec_Alpha_Mainnet-v5.0.1-blue)
 ![Noir](https://img.shields.io/badge/Noir-1.0.0--beta.22-purple)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -9,15 +9,16 @@ A privacy-preserving voting system built on Aztec Network using Noir.
 Votes are cast with client-side ZK proofs — even Aztec sequencers cannot
 see who voted for what.
 
-**Local Network (M1) — Mainnet after Aztec V5 upgrade**
+**Live on Aztec Alpha Mainnet**
 
 | Field | Value |
 |---|---|
-| Network | Aztec Local Network |
-| Aztec Version | 5.0.0 |
+| Network | Aztec Alpha Mainnet |
+| Aztec Version | 5.0.1 |
 | Noir Version | 1.0.0-beta.22 |
-| Contract | Deployed via `aztec start --local-network` |
+| Contract Address | `0x25bb47296b98070aaef61167a966cc6416d8a3f7b18b285796b7fd47c1a3e38e` |
 | Tests | 11/11 passing |
+| Full deployment record | [DEPLOYMENT.md](./DEPLOYMENT.md) |
 
 ---
 
@@ -207,29 +208,31 @@ app-siloed nullifier hiding key (`nhk`). This is safer and more auditable.
 | Development | aztec-nargo + aztec CLI |
 | Test framework | TXE (Testing Execution Environment) |
 | Local network | `aztec start --local-network` |
-| Mainnet target | Aztec V5 (post-governance upgrade) |
+| Mainnet | Live on Aztec Alpha Mainnet v5.0.1 — see [DEPLOYMENT.md](./DEPLOYMENT.md) |
 
 ---
 
 ## Roadmap
 
-**M1 — Local Network (complete)**
+**M1 — Noir Contract (complete, 2026-06-24)**
 - [x] Noir contract compiles with UltraHonk VK generation
 - [x] 11 e2e tests: createPoll, castVote x2, double-vote rejection, endPoll
 - [x] Nullifier-based double-vote prevention verified
 - [x] Two accounts cast votes independently confirmed
 
-**M2 — React Frontend**
-- [ ] Wallet integration (Aztec wallet adapter)
-- [ ] Poll creation UI
-- [ ] Private voting UI (client-side proof generation in browser)
-- [ ] Live tally display
+**M2 — Testnet Deployment (complete, 2026-07-16)**
+- [x] Upgraded to Aztec v5.0.0
+- [x] Deployed PrivateVoting to Aztec Testnet
+- [x] Full e2e flow on testnet (createPoll -> castVote x2 -> endPoll -> tally)
 
-**M3 — Grant Application**
-- [ ] Deploy to Aztec Mainnet (post V5)
+**M3 — Mainnet Deployment + Grant Application (in progress, 2026-07-21)**
+- [x] Deployed PrivateVoting to Aztec Alpha Mainnet (v5.0.1, post AZUP-2)
+- [x] Full e2e flow on mainnet (createPoll -> castVote -> endPoll -> tally)
 - [ ] Aztec Ecosystem Grant submission
 - [ ] Multi-poll support
 - [ ] Delegation / anonymous credentials
+
+Full deployment details, transaction hashes, and known issues: see [DEPLOYMENT.md](./DEPLOYMENT.md).
 
 ---
 
@@ -239,6 +242,17 @@ app-siloed nullifier hiding key (`nhk`). This is safer and more auditable.
 - Deployed PrivateVoting contract to Aztec local network
 - Ran full e2e: createPoll -> castVote x2 -> nullifier check -> tallyVotes
 - Confirmed votes are private: sequencer sees only ZK proof validity
+
+**2026-07-16 — M2 Testnet**
+- Upgraded to Aztec v5.0.0
+- Deployed PrivateVoting to Aztec Testnet
+- Full e2e (two voters) passing on testnet — see [DEPLOYMENT.md](./DEPLOYMENT.md)
+
+**2026-07-21 — M3 Mainnet**
+- Aztec Alpha Mainnet upgraded to v5.0.1 (AZUP-2 executed)
+- Deployed PrivateVoting to Aztec Alpha Mainnet
+- Full e2e (createPoll -> castVote -> endPoll -> tally) passing on mainnet
+- Full transaction history and known issues: see [DEPLOYMENT.md](./DEPLOYMENT.md)
 
 ---
 
