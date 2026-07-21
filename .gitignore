@@ -2,5 +2,8 @@ target/
 codegenCache.json
 .env
 **/.env
+.env.mainnet
+**/.env.mainnet
+e2e/.standard-contracts-v500/
 node_modules/
 e2e/node_modules/

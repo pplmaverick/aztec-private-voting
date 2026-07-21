@@ -77,3 +77,123 @@ Source verification attempted on Aztecscan but timed out due to
 aztec-packages monorepo clone size (~12k files). Known infrastructure
 limitation, not a code issue. Re-attempt after Aztecscan improves
 compilation worker capacity.
+
+## Aztec Alpha Mainnet (M3)
+
+| Field | Value |
+|---|---|
+| Network | Aztec Alpha Mainnet |
+| CLI Version | aztec 5.0.1 (upgraded from 5.0.0 same day AZUP-2 went live) |
+| Node URL | https://aztec-mainnet.drpc.org |
+| L1 Chain ID | 1 (Ethereum mainnet) |
+| Deployed | 2026-07-21 |
+| Contract Address | 0x25bb47296b98070aaef61167a966cc6416d8a3f7b18b285796b7fd47c1a3e38e |
+| Admin / Deployer | 0x2abaa9934abaee33e83916a01c982fa5eee603484f6a449e1b4ebf098509f3e3 (alias `mainnet-admin-v2`) |
+| Fee-paying asset | $AZTEC (`0xa27ec0006e59f245217ff08cd52a7e8b169e62d2` on L1) -- Fee Juice on mainnet is *not* free ETH like testnet's Sponsored FPC; it's the network's own token |
+| Fee Juice Portal (L1) | 0xaf73Dd51D1eb8a079BB097f39c832cDD00ac691c |
+
+No sponsored FPC exists on mainnet. Deployment required bridging real $AZTEC
+into Fee Juice before any transaction could be sent.
+
+### Deploy Commands
+
+```bash
+# 1. Bridge $AZTEC -> Fee Juice (requires an L1 account already holding $AZTEC;
+#    $AZTEC is both the Fee Juice AND staking asset on mainnet, NOT ETH)
+aztec-wallet bridge-fee-juice \
+  30000000000000000000 \
+  <mainnet-admin-v2 address> \
+  --l1-rpc-urls "$L1_RPC_URL" \
+  --l1-private-key "$L1_PRIVATE_KEY" \
+  --l1-chain-id 1 \
+  --node-url https://aztec-mainnet.drpc.org
+
+# 2. Register the address locally (no tx, no funds needed)
+aztec-wallet --node-url https://aztec-mainnet.drpc.org create-account \
+  --register-only --alias mainnet-admin-v2
+
+# 3. Deploy the account, claiming the bridged Fee Juice inline as payment
+#    (claimSecret/claimAmount/messageLeafIndex are printed by step 1)
+aztec-wallet deploy-account <mainnet-admin-v2 address> \
+  --from mainnet-admin-v2 \
+  --payment method=fee_juice,claimSecret=<...>,claimAmount=30000000000000000000,messageLeafIndex=<...> \
+  --node-url https://aztec-mainnet.drpc.org
+
+# 4. Deploy the PrivateVoting contract, paid from the now-funded account
+aztec-wallet deploy \
+  --from mainnet-admin-v2 \
+  --payment method=fee_juice \
+  --alias private_voting_mainnet \
+  target/private_voting_contract-PrivateVoting.json \
+  --args accounts:mainnet-admin-v2 \
+  --node-url https://aztec-mainnet.drpc.org
+```
+
+### Transaction History
+
+| Operation | Tx Hash |
+|---|---|
+| bridge-fee-juice: approve $AZTEC (L1) | 0x232ca0f4ebb8dbe24cd00041bf75284dea6b0c2c10840f4d0e788dc4587bd991 |
+| bridge-fee-juice: depositToAztecPublic (L1) | 0x562d086051d8b8e35f494e57b3d0f23056e1a5e9a7652a99805c8d120b9579d0 |
+| deploy-account (mainnet-admin-v2) | 0x157942227afaba1fca4dceeb8c63f7cf6dfc4228128c905fb612ce7a1833c360 |
+| deploy PrivateVoting | 0x295698d0e89954d1c8268a87b003ceab4409c4d8e54f93594ccd64cea7e2d190 |
+
+### Known issue: `aztec-wallet` CLI 5.0.1 SchnorrAccount references a stale HandshakeRegistry address
+
+`cast_vote` (a private function) failed on mainnet with:
+
+```
+Error: Cannot call 0x0193c31bd24d0347aa9ed889cd6d304832988625c2f21c411e7af9d703591aa5:0xc475a0eb:
+the contract is not registered.
+```
+
+Root cause (confirmed by diffing `@aztec/standard-contracts@5.0.0` vs `@5.0.1`):
+the account contract bundled with `aztec-wallet` CLI 5.0.1 has the **v5.0.0-vintage
+`HandshakeRegistry` standard-contract address** (`0x0193c31b...`) baked into its
+compiled bytecode, instead of the v5.0.1 address (`0x086c3c67...`) that the rest of
+the CLI/network uses. This affects every account deployed via this CLI version, not
+just this project's contract -- not something recompiling PrivateVoting fixes.
+
+Fix: `HandshakeRegistry` is a permissionless "standard contract" (fixed salt=1,
+universal deployment, no constructor), so anyone can deploy it at its deterministic
+address. Deployed it ourselves:
+
+```bash
+aztec-wallet deploy \
+  --from mainnet-admin-v2 \
+  --payment method=fee_juice \
+  --salt 0x0000000000000000000000000000000000000000000000000000000000000001 \
+  --universal \
+  --no-init \
+  --alias handshake_registry_v500 \
+  e2e/.standard-contracts-v500/HandshakeRegistry.json \
+  --node-url https://aztec-mainnet.drpc.org
+```
+
+Tx hash: `0x29bf39cc29c8694ff346613e5961cf2533ab23228f5c853504bbaa4ad4dd1351`
+(deployed at `0x0193c31bd24d0347aa9ed889cd6d304832988625c2f21c411e7af9d703591aa5`, as expected).
+
+Any aztec.js client also needs to (a) locally register that HandshakeRegistry
+instance/artifact, and (b) configure a PXE `authorizeUtilityCall` hook that
+authorizes calls into it -- see `e2e/src/e2e-mainnet.ts`. Both steps are required
+even after the on-chain deployment exists; PXE never infers artifacts or
+authorization from chain state alone.
+
+### E2E Test Results
+
+### 2026-07-21 -- single-account flow via `e2e/src/e2e-mainnet.ts` (aztec.js EmbeddedWallet)
+
+Single admin account only (no second voter, unlike testnet -- mainnet has no
+sponsored FPC, so a second voter would need its own bridged funds).
+
+| Operation | Tx Hash | Block |
+|---|---|---|
+| create_poll({id:1}) (sent directly via `aztec-wallet send`) | 0x1d83a1f49fa603b30cc84a0e3b0bf9e04f44a85a10ce3d3198cbace508770f0d | -- |
+| cast_vote({id:1}, 1) -- YES, mainnet-admin-v2 | 0x2a7715d90619b31bd5a01e69e1d879a9d45af46fb2c17448a55fb3806cd22c1b | 7823 |
+| end_poll({id:1}) | 0x28566deb2941b2829ccaef6664e0d6c60085ee29fb990cd5bf4b444351b507bc | 7824 |
+
+| Query | Result |
+|---|---|
+| get_vote_count({id:1}, 1) -- YES | 1 |
+| get_vote_count({id:1}, 0) -- NO | 0 |
+| is_poll_ended({id:1}) | true |

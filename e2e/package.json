@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "e2e": "tsx src/e2e.ts",
+    "e2e:mainnet": "tsx src/e2e-mainnet.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -15,10 +16,10 @@
     "esm": true
   },
   "dependencies": {
-    "@aztec/aztec.js": "^5.0.0",
-    "@aztec/noir-contracts.js": "^5.0.0",
-    "@aztec/stdlib": "^5.0.0",
-    "@aztec/wallets": "^5.0.0",
+    "@aztec/aztec.js": "5.0.1",
+    "@aztec/noir-contracts.js": "5.0.1",
+    "@aztec/stdlib": "5.0.1",
+    "@aztec/wallets": "5.0.1",
     "@types/node": "^26.1.1",
     "dotenv": "^17.4.2",
     "typescript": "^7.0.2"
