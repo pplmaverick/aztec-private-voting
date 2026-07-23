@@ -225,10 +225,9 @@ app-siloed nullifier hiding key (`nhk`). This is safer and more auditable.
 - [x] Deployed PrivateVoting to Aztec Testnet
 - [x] Full e2e flow on testnet (createPoll -> castVote x2 -> endPoll -> tally)
 
-**M3 — Mainnet Deployment + Grant Application (in progress, 2026-07-21)**
+**M3 — Mainnet Deployment (complete, 2026-07-21)**
 - [x] Deployed PrivateVoting to Aztec Alpha Mainnet (v5.0.1, post AZUP-2)
 - [x] Full e2e flow on mainnet (createPoll -> castVote -> endPoll -> tally)
-- [ ] Aztec Ecosystem Grant submission
 - [ ] Multi-poll support
 - [ ] Delegation / anonymous credentials
 
