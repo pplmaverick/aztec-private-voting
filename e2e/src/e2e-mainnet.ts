@@ -32,13 +32,21 @@ const CONTRACT_DEPLOYMENT_SALT = Fr.fromString(
   "0x2a8f2bc0ab0322b827521c52c7265f72d45747f5a52f407e1cc982253467056a",
 );
 
-// Poll 1 was already created via `aztec-wallet send create_poll` directly
-// (see DEPLOYMENT.md). This script continues that same poll rather than
-// creating a new one, since create_poll's active_at_block.initialize() would
-// revert on a poll_id that's already active.
-const POLL_ID = { id: 1n };
+// Poll 1 (created 2026-07-21) was already ended by a prior e2e run -- see
+// DEPLOYMENT.md. Using a fresh poll_id here since create_poll's
+// active_at_block.initialize() would revert on a poll_id that's already active.
+const POLL_ID = { id: 2n };
 const CHOICE_YES = 1n;
 const CHOICE_NO = 0n;
+
+// Without an explicit `fee.gasSettings.gasLimits`, aztec.js reserves against the
+// network's per-tx max (txsLimits.gas: l2Gas 6,540,000 / daGas 117,668 as of
+// 2026-07-23) at a padded predicted-worst-case fee -- that reservation alone
+// exceeded mainnet-admin-v2's 20.71 FJ balance even though create_poll's actual
+// simulated usage was only ~730,686 l2Gas / 352 daGas. Capping the limit well
+// below the network max (but with headroom over that observed usage) brings the
+// reservation back within budget.
+const GAS_LIMITS = { l2Gas: 3_000_000, daGas: 5_000 };
 
 async function main() {
   console.log(`Connecting to node: ${NODE_URL}`);
@@ -109,17 +117,19 @@ async function main() {
   console.log(`Reconstructed HandshakeRegistry address: ${handshakeInstance.address.toString()}`);
   await wallet.registerContract(handshakeInstance, HandshakeRegistryArtifact);
 
-  // cast_vote -- YES (choice = 1), from mainnet-admin-v2.
-  // No `fee` option: the account already holds a real Fee Juice balance from
-  // the earlier bridge, so it pays the tx fee natively without a claim.
-  console.log("\n--- cast_vote (YES, choice=1) ---");
-  const { receipt: voteYesReceipt } = await privateVoting.methods
-    .cast_vote(POLL_ID, CHOICE_YES)
-    .send({ from: adminWallet.address });
-  console.log(`Tx hash: ${voteYesReceipt.txHash.toString()}`);
-  console.log(
-    `Block: ${voteYesReceipt.blockNumber}, fee: ${voteYesReceipt.transactionFee}`,
-  );
+  // create_poll is intentionally skipped here: a prior run's create_poll(POLL_ID)
+  // send() reported a client-side RPC timeout/dropped status, but the tx had
+  // actually landed on-chain -- confirmed read-only via is_poll_ended({id:2}) ==
+  // false with 0/0 votes (i.e. created, never voted, never ended). Re-sending
+  // create_poll would revert with a duplicate-nullifier error on
+  // active_at_block.initialize(). See DEPLOYMENT.md's 2026-07-23 section for
+  // the full debugging trail.
+
+  // cast_vote is intentionally skipped here too: the prior run's send() also
+  // reported a client-side RPC timeout/dropped status, but the vote had
+  // actually landed on-chain -- confirmed read-only via get_vote_count == 1
+  // YES / 0 NO for poll 2, and the account's Fee Juice balance dropping by the
+  // expected ~1.23 FJ. Re-sending would revert (vote_claims claim already used).
 
   console.log("\n--- get_vote_count (choice=1, YES) ---");
   const { result: yesCount } = await privateVoting.methods
@@ -136,7 +146,7 @@ async function main() {
   console.log("\n--- end_poll ---");
   const { receipt: endPollReceipt } = await privateVoting.methods
     .end_poll(POLL_ID)
-    .send({ from: adminWallet.address });
+    .send({ from: adminWallet.address, fee: { gasSettings: { gasLimits: GAS_LIMITS } } });
   console.log(`Tx hash: ${endPollReceipt.txHash.toString()}`);
   console.log(
     `Block: ${endPollReceipt.blockNumber}, fee: ${endPollReceipt.transactionFee}`,

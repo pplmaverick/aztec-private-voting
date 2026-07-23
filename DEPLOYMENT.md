@@ -197,3 +197,57 @@ sponsored FPC, so a second voter would need its own bridged funds).
 | get_vote_count({id:1}, 1) -- YES | 1 |
 | get_vote_count({id:1}, 0) -- NO | 0 |
 | is_poll_ended({id:1}) | true |
+
+### 2026-07-23 -- second flow, poll 2, via `e2e/src/e2e-mainnet.ts`
+
+Poll 1 was already ended, so this round used `POLL_ID = {id: 2}`. Ran into two
+new mainnet-specific issues along the way (see below); both are now reflected
+in the script.
+
+| Operation | Tx Hash | Block |
+|---|---|---|
+| create_poll({id:2}) | 0x1b64e1ffbd1cb81b61b8baba6f34428f5b002f2c90eef37d22760fb73f18dac9 | -- |
+| cast_vote({id:2}, 1) -- YES, mainnet-admin-v2 | 0x27a614c17abaa0300ab4996cca1f17956e491b6f50516f228fba9c3aaa81ea7b | -- |
+| end_poll({id:2}) | 0x015eabaafe7b97d89ffd6cf8b8871e8f23d4fa3351c133ead68d77ccdd101dc4 | 10332 |
+
+| Query | Result |
+|---|---|
+| get_vote_count({id:2}, 1) -- YES | 1 |
+| get_vote_count({id:2}, 0) -- NO | 0 |
+| is_poll_ended({id:2}) | true |
+
+The `create_poll` and `cast_vote` sends each reported a client-side
+`Request timeout on the free plan, please upgrade to paid plan` error from
+`aztec-mainnet.drpc.org`, and `aztec-wallet get-tx <hash>` subsequently reported
+`Status: dropped / Tx dropped by P2P node` for both hashes. Both were actually
+on-chain -- confirmed read-only (no tx) via `is_poll_ended`/`get_vote_count`
+showing the expected post-tx state, and via the account's Fee Juice balance
+dropping by the exact fee amount each time. **dRPC's free-tier `get-tx` status
+cannot be trusted as ground truth for mainnet on this project** -- prefer
+re-deriving state from the contract's own read functions, and cross-checking
+`get-fee-juice-balance` deltas, before assuming a "dropped"/timed-out send
+failed. Only `end_poll` above returned a clean confirmation end-to-end (tx
+hash, block number, fee) without hitting this issue.
+
+#### Known issue: default fee estimation reserves against the network's max gas, not actual usage
+
+Calling `.send({ from })` with no explicit `fee` option failed at the AVM
+simulation step with `Not enough balance for fee payer to pay for transaction`,
+even though the account held 20.71 FJ -- comfortably more than the ~1.2-1.3 FJ
+a `create_poll`/`cast_vote`/`end_poll` call actually costs (confirmed via prior
+runs and via `aztec get-current-min-fee`).
+
+Root cause: `@aztec/wallet-sdk`'s `completeFeeOptions` (`base_wallet.js`) falls
+back to `GasSettings.fallback({ gasLimits: maxTxGasLimits, ... })` whenever no
+explicit `gasLimits` is given, where `maxTxGasLimits` comes from the node's
+advertised `txsLimits.gas` -- the network's absolute per-tx ceiling (l2Gas
+6,540,000 / daGas 117,668 as of 2026-07-23), not an estimate of the call's real
+usage (~630k-730k l2Gas for these functions). `maxFeesPerGas` is the worst-case
+*predicted* min fee (`getPredictedMinFees`, not just the current one) padded
+1.5x, so the reserved amount can end up costing several times the account's
+actual balance even though the real bill afterward is tiny.
+
+Fix: pass explicit gas limits well below the network max but with headroom
+over observed usage, e.g. `fee: { gasSettings: { gasLimits: { l2Gas: 3_000_000,
+daGas: 5_000 } } }`. `e2e/src/e2e-mainnet.ts` now sets this on every `.send()`
+call via a shared `GAS_LIMITS` constant.
