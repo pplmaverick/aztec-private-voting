@@ -94,8 +94,19 @@ aztec start --local-network
   account artifact). The system's default `aztec`/`aztec-wallet` CLI is 5.2.0 and **cannot** be used
   for this account until/unless this is fixed upstream. A cleanly-reinstalled `5.0.1` exists at
   `~/.aztec/versions/5.0.1` (the original one was corrupted — missing `node_modules` — and was
-  reinstalled 2026-09-27) but has **not yet been verified end-to-end** for actually sending a tx
-  (only used so far to compute `contractClassId` and confirm `deriveSecretKeyFromSigningKey`).
+  reinstalled 2026-09-27).
+- **Confirmed and resolved (2026-09-27)**: built `e2e-mainnet-legacy/` (project-local, exact `5.0.1`
+  pins on `@aztec/accounts`/`@aztec/aztec.js`/`@aztec/noir-contracts.js`/`@aztec/stdlib`/`@aztec/wallets`,
+  run via `~/.aztec/versions/5.0.1`'s CLI on `PATH`). Verified it correctly reconstructs both
+  `mainnet-admin-v2` (`0x2abaa993...`) and `PrivateVoting` (`0x25bb4729...`) before sending anything.
+  Successfully sent a full poll (poll 3: `create_poll`/`cast_vote`/`end_poll`) through it — see
+  DEPLOYMENT.md's 2026-09-27 "poll 3 completed" section for tx hashes/fees. **All future interaction
+  with `mainnet-admin-v2` must go through `e2e-mainnet-legacy/`, never the system's default 5.2.0
+  CLI/npm packages.**
+- Separately confirmed while testing: `cast_vote`/`end_poll` can't be cleanly `.simulate()`-checked
+  independent of real on-chain state (`add_to_tally_public`'s `active_at_block.read()` reverts on
+  an uninitialized `PublicImmutable` unless `create_poll` actually landed first) — this is a
+  contract-design property, not a bug, and not related to the SDK-version issue above.
 
 ## Aztec V6 (AZUP-3) status — checked 2026-09-26, do not treat as current without re-checking
 

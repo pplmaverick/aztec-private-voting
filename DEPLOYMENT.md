@@ -280,3 +280,63 @@ versions it was created under (a freshly reinstalled, verified-complete copy
 exists at `~/.aztec/versions/5.0.1`, but sending an actual tx through it has
 not yet been attempted/verified end-to-end) -- the system's default 5.2.0
 CLI cannot be used for this account until this is fixed upstream.
+
+### 2026-09-27 -- poll 3 completed, via an isolated 5.0.1-pinned environment
+
+Created a project-local isolated environment, `e2e-mainnet-legacy/`, with its
+own `package.json` pinning exact (not `^`) versions matching what
+`mainnet-admin-v2` was originally created/deployed under:
+`@aztec/accounts@5.0.1`, `@aztec/aztec.js@5.0.1`, `@aztec/noir-contracts.js@5.0.1`,
+`@aztec/stdlib@5.0.1`, `@aztec/wallets@5.0.1`. Run via the system's separately
+reinstalled `~/.aztec/versions/5.0.1` CLI on `PATH` (not the default 5.2.0
+install). Verified address reconstruction first (no tx sent): this
+environment correctly computes `mainnet-admin-v2` as `0x2abaa993...` and
+`PrivateVoting` as `0x25bb4729...`, matching the real deployed addresses
+exactly -- confirming the SDK-version root cause documented above.
+
+**Contract-design limitation found while testing**: `cast_vote`/`end_poll`
+cannot be cleanly `.simulate()`-tested independent of real on-chain state.
+`add_to_tally_public` (enqueued by `cast_vote`) reads `active_at_block` via
+`PublicImmutable::read()`, which reverts with `"Trying to read from
+uninitialized PublicImmutable"` unless `create_poll` has actually landed
+on-chain first -- simulating `create_poll` alone doesn't write any state.
+This is expected contract behavior, not a bug: `create_poll` must be sent
+for real before `cast_vote`/`end_poll` can be meaningfully simulated or sent.
+
+Fee check before sending: `get-current-min-fee`'s CLI subcommand is broken
+on 5.0.1 (throws `Failed to parse URL from undefined` regardless of how
+`--node-url`/`-n` is passed -- a bug in that CLI release, not our setup).
+Worked around by calling the node's `node_getCurrentMinFees` JSON-RPC method
+directly via `curl`, giving `feePerL2Gas` -> combined with the ~730k l2Gas
+`cast_vote` costs (per prior simulate runs), estimated ~1.5 FJ/tx, under the
+3 FJ/tx threshold.
+
+Sent `create_poll(3)` for real; once confirmed on-chain, ran a pre-send
+`.simulate()` on `cast_vote(3, YES)` (passed cleanly, no HandshakeRegistry
+error) before sending it for real; same pre-send simulate + send pattern for
+`end_poll(3)`.
+
+| Operation | Tx Hash | Block | Fee (FJ) |
+|---|---|---|---|
+| create_poll({id:3}) | 0x1531f136a13ada6679438bc249b6c7af3ed1bd1a76a264b0b9ea21eddd1c26b7 | 101387 | 1.508806639771831686 |
+| cast_vote({id:3}, 1) -- YES, mainnet-admin-v2 | 0x128863b83ed0fed46d0bc873299b17e66dcc7f6c12ce12e37658ded6e8540ae1 | 101388 | 1.379018286722479832 |
+| end_poll({id:3}) | 0x06b571a27d4c28dbbe78147cc148da6f8f4e69adf7de4f0db687d62e7c568aa4 | 101389 | 1.302738152602199391 |
+
+| Query | Result |
+|---|---|
+| get_vote_count({id:3}, 1) -- YES | 1 |
+| get_vote_count({id:3}, 0) -- NO | 0 |
+| is_poll_ended({id:3}) | true |
+
+No dropped/timeout client errors this round (unlike the 2026-07-23 poll 2 run).
+
+**Fee Juice balance**: 18.327389646191040179 FJ before this round ->
+14.13682656709452927 FJ after (delta ~4.19 FJ, matches the sum of the three
+fees above almost exactly).
+
+**Going forward: any interaction with `mainnet-admin-v2` (sending a tx,
+building an entrypoint call, anything beyond a stateless read against the
+node) must go through `e2e-mainnet-legacy/`'s pinned 5.0.1 environment.** The
+system's default `aztec`/`aztec-wallet` CLI (currently 5.2.0) computes the
+wrong address for this account and cannot be used for it until the upstream
+issue is fixed.
