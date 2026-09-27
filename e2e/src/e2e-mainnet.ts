@@ -7,6 +7,7 @@ import { Fr, GrumpkinScalar } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { getContractInstanceFromInstantiationParams } from "@aztec/stdlib/contract";
 import { loadContractArtifact } from "@aztec/stdlib/abi";
+import { Gas } from "@aztec/stdlib/gas";
 import { PrivateVotingContract } from "./artifacts/PrivateVoting.js";
 import HandshakeRegistryJson from "../.standard-contracts-v500/HandshakeRegistry.json" with { type: "json" };
 
@@ -32,10 +33,10 @@ const CONTRACT_DEPLOYMENT_SALT = Fr.fromString(
   "0x2a8f2bc0ab0322b827521c52c7265f72d45747f5a52f407e1cc982253467056a",
 );
 
-// Poll 1 (created 2026-07-21) was already ended by a prior e2e run -- see
-// DEPLOYMENT.md. Using a fresh poll_id here since create_poll's
-// active_at_block.initialize() would revert on a poll_id that's already active.
-const POLL_ID = { id: 2n };
+// Polls 1 and 2 were already ended by prior e2e runs -- see DEPLOYMENT.md.
+// Using a fresh poll_id here since create_poll's active_at_block.initialize()
+// would revert on a poll_id that's already active.
+const POLL_ID = { id: 3n };
 const CHOICE_YES = 1n;
 const CHOICE_NO = 0n;
 
@@ -46,7 +47,15 @@ const CHOICE_NO = 0n;
 // simulated usage was only ~730,686 l2Gas / 352 daGas. Capping the limit well
 // below the network max (but with headroom over that observed usage) brings the
 // reservation back within budget.
-const GAS_LIMITS = { l2Gas: 3_000_000, daGas: 5_000 };
+//
+// v5.2.0 breaking change: GasSettings.gasLimits now requires an actual `Gas`
+// class instance (with getSize/clone/get/equals/... methods), not a plain
+// { l2Gas, daGas } object literal -- construct it via Gas.from().
+const GAS_LIMITS = Gas.from({ l2Gas: 3_000_000, daGas: 5_000 });
+
+// Defaults to a dry run (every call goes through .simulate(), nothing is
+// broadcast or paid for). Only real sends happen with SEND=true.
+const SEND = process.env.SEND === "true";
 
 async function main() {
   console.log(`Connecting to node: ${NODE_URL}`);
@@ -117,51 +126,63 @@ async function main() {
   console.log(`Reconstructed HandshakeRegistry address: ${handshakeInstance.address.toString()}`);
   await wallet.registerContract(handshakeInstance, HandshakeRegistryArtifact);
 
-  // create_poll is intentionally skipped here: a prior run's create_poll(POLL_ID)
-  // send() reported a client-side RPC timeout/dropped status, but the tx had
-  // actually landed on-chain -- confirmed read-only via is_poll_ended({id:2}) ==
-  // false with 0/0 votes (i.e. created, never voted, never ended). Re-sending
-  // create_poll would revert with a duplicate-nullifier error on
-  // active_at_block.initialize(). See DEPLOYMENT.md's 2026-07-23 section for
-  // the full debugging trail.
+  console.log(`\nMode: ${SEND ? "SEND (real txs)" : "SIMULATE (dry run, nothing broadcast)"}`);
+  const feeOpt = { fee: { gasSettings: { gasLimits: GAS_LIMITS } } };
 
-  // cast_vote is intentionally skipped here too: the prior run's send() also
-  // reported a client-side RPC timeout/dropped status, but the vote had
-  // actually landed on-chain -- confirmed read-only via get_vote_count == 1
-  // YES / 0 NO for poll 2, and the account's Fee Juice balance dropping by the
-  // expected ~1.23 FJ. Re-sending would revert (vote_claims claim already used).
+  console.log(`\n--- create_poll(${POLL_ID.id}) ---`);
+  const createPollCall = privateVoting.methods.create_poll(POLL_ID);
+  if (SEND) {
+    const { receipt } = await createPollCall.send({ from: adminWallet.address, ...feeOpt });
+    console.log(`Tx hash: ${receipt.txHash.toString()}`);
+    console.log(`Block: ${receipt.blockNumber}, fee: ${receipt.transactionFee}`);
+  } else {
+    await createPollCall.simulate({ from: adminWallet.address });
+    console.log("Simulation OK");
+  }
 
-  console.log("\n--- get_vote_count (choice=1, YES) ---");
+  console.log(`\n--- cast_vote(${POLL_ID.id}, YES) ---`);
+  const castVoteCall = privateVoting.methods.cast_vote(POLL_ID, CHOICE_YES);
+  if (SEND) {
+    const { receipt } = await castVoteCall.send({ from: adminWallet.address, ...feeOpt });
+    console.log(`Tx hash: ${receipt.txHash.toString()}`);
+    console.log(`Block: ${receipt.blockNumber}, fee: ${receipt.transactionFee}`);
+  } else {
+    await castVoteCall.simulate({ from: adminWallet.address });
+    console.log("Simulation OK");
+  }
+
+  console.log(`\n--- end_poll(${POLL_ID.id}) ---`);
+  const endPollCall = privateVoting.methods.end_poll(POLL_ID);
+  if (SEND) {
+    const { receipt } = await endPollCall.send({ from: adminWallet.address, ...feeOpt });
+    console.log(`Tx hash: ${receipt.txHash.toString()}`);
+    console.log(`Block: ${receipt.blockNumber}, fee: ${receipt.transactionFee}`);
+  } else {
+    await endPollCall.simulate({ from: adminWallet.address });
+    console.log("Simulation OK");
+  }
+
+  console.log("\n--- tally ---");
   const { result: yesCount } = await privateVoting.methods
     .get_vote_count(POLL_ID, CHOICE_YES)
     .simulate({ from: adminWallet.address });
   console.log(`YES votes: ${yesCount}`);
 
-  console.log("\n--- get_vote_count (choice=0, NO) ---");
   const { result: noCount } = await privateVoting.methods
     .get_vote_count(POLL_ID, CHOICE_NO)
     .simulate({ from: adminWallet.address });
   console.log(`NO votes: ${noCount}`);
 
-  console.log("\n--- end_poll ---");
-  const { receipt: endPollReceipt } = await privateVoting.methods
-    .end_poll(POLL_ID)
-    .send({ from: adminWallet.address, fee: { gasSettings: { gasLimits: GAS_LIMITS } } });
-  console.log(`Tx hash: ${endPollReceipt.txHash.toString()}`);
-  console.log(
-    `Block: ${endPollReceipt.blockNumber}, fee: ${endPollReceipt.transactionFee}`,
-  );
-
-  console.log("\n--- is_poll_ended ---");
   const { result: ended } = await privateVoting.methods
     .is_poll_ended(POLL_ID)
     .simulate({ from: adminWallet.address });
   console.log(`Poll ended: ${ended}`);
-  if (ended !== true) {
+
+  if (SEND && ended !== true) {
     throw new Error(`Expected poll to be ended, got: ${ended}`);
   }
 
-  console.log("\nmainnet e2e flow completed successfully");
+  console.log(`\nmainnet e2e flow (${SEND ? "send" : "simulate"}) completed successfully`);
 }
 
 main().catch((err) => {

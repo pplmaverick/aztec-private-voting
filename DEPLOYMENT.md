@@ -251,3 +251,32 @@ Fix: pass explicit gas limits well below the network max but with headroom
 over observed usage, e.g. `fee: { gasSettings: { gasLimits: { l2Gas: 3_000_000,
 daGas: 5_000 } } }`. `e2e/src/e2e-mainnet.ts` now sets this on every `.send()`
 call via a shared `GAS_LIMITS` constant.
+
+### 2026-09-27 -- poll 3 attempt blocked: `mainnet-admin-v2` unreachable from the system's 5.2.0 SDK
+
+Attempted a third round (`create_poll(3)` -> `cast_vote(3, YES)` -> `end_poll(3)`)
+after bumping `e2e/`'s `@aztec/*` deps to `5.2.0` to match the system's
+reinstalled `aztec` CLI (see CLAUDE.md -- the previous `5.0.1` install was
+found to be silently broken, missing `node_modules` entirely). The dry-run
+`simulate` pass never even reached `create_poll`: reconstructing
+`mainnet-admin-v2` locally from its stored secret/signing key + salt=0 under
+`@aztec/wallets@5.2.0` computed `0x0e9d2e26...`, not the real deployed
+`0x2abaa993...`.
+
+Root cause (full investigation and evidence trail in CLAUDE.md's "Account
+address drift across SDK versions" section, upstream follow-up posted to
+[aztec-packages#24847](https://github.com/AztecProtocol/aztec-packages/issues/24847#issuecomment-5854070046)):
+`@aztec/accounts`' bundled `SchnorrAccount` artifact was recompiled between
+5.0.1 and 5.2.0 (Noir compiler `1.0.0-beta.22` -> `1.0.0-beta.25`), changing
+its `contractClassId` and therefore the derived address of every account
+created under the older SDK -- **not** a `PublicKeys` format issue (that was
+checked and ruled out first).
+
+**Poll 3 was not created, no vote was cast, nothing was sent.** No standard
+contract was deployed to work around this. The only currently-known path to
+actually interact with `mainnet-admin-v2` is to pin `@aztec/accounts` /
+`@aztec/aztec.js` / `@aztec/wallets` / `@aztec/stdlib` to the exact `5.0.1`
+versions it was created under (a freshly reinstalled, verified-complete copy
+exists at `~/.aztec/versions/5.0.1`, but sending an actual tx through it has
+not yet been attempted/verified end-to-end) -- the system's default 5.2.0
+CLI cannot be used for this account until this is fixed upstream.

@@ -63,6 +63,40 @@ aztec start --local-network
   was actually observed here. Only *read* calls (`is_poll_ended`/`get_vote_count`) were tested;
   a *private* call like `cast_vote` was not attempted since that would send a real tx.
 
+## Account address drift across SDK versions (found 2026-09-27) — read before touching mainnet-admin-v2
+
+- **`mainnet-admin-v2` cannot currently be reconstructed/used from the system's 5.2.0 install.**
+  Attempting to re-derive it locally (same `MAINNET_ADMIN_SECRET`/`MAINNET_ADMIN_SIGNING_KEY`/salt=0)
+  under `@aztec/wallets@5.2.0` computes `0x0e9d2e26...` — **not** the real deployed address
+  `0x2abaa993...`. Confirmed via both a hand-written script and `aztec-wallet` CLI 5.2.0 itself
+  (ruling out a script bug), in an isolated scratch data-dir so no real alias data was touched.
+- **Root cause (confirmed, not the `PublicKeys` hash-format red herring we chased first)**:
+  `@aztec/accounts`' bundled `SchnorrAccount.json` artifact was recompiled between 5.0.1 and
+  5.2.0 (Noir compiler `1.0.0-beta.22` → `1.0.0-beta.25`), changing its bytecode/verification-key
+  material → different `artifactHash`/`privateFunctionsRoot` → different `contractClassId`
+  (`0x0db53983...` on 5.0.1 vs `0x0833459d...` on 5.2.0, verified via `getContractClassFromArtifact`
+  run separately against each version's own node_modules) → different `partial_address` → different
+  final account address, **even with byte-identical secret key, signing key, and salt**.
+  `deriveSecretKeyFromSigningKey` itself is unchanged; `PublicKeys` is hash-only as far back as the
+  npm-registry `5.0.0` tarball (verified via direct tarball download + shasum match) — that's not
+  what changed here.
+  - This is a systemic pattern, not a one-off: whenever `@aztec/accounts`' bundled account artifact
+    gets recompiled for *any* reason (including an unrelated Noir compiler bump), every account
+    previously deployed with an older SDK becomes unreachable from a newer one. Same failure mode
+    as [#24847](https://github.com/AztecProtocol/aztec-packages/issues/24847) (5.0.0 vs 5.0.1,
+    filed 2026-07-21) — that issue never diagnosed why; the root-cause mechanism above was added as
+    a follow-up comment: https://github.com/AztecProtocol/aztec-packages/issues/24847#issuecomment-5854070046
+  - [#24846](https://github.com/AztecProtocol/aztec-packages/issues/24846) (stale HandshakeRegistry
+    address, still OPEN) is a separate, unrelated bug on the same test account — don't conflate the two.
+- **Only currently-known way to actually interact with `mainnet-admin-v2`/send a tx as it**: pin
+  `@aztec/accounts`/`@aztec/aztec.js`/`@aztec/wallets`/`@aztec/stdlib` to the exact `5.0.1` versions
+  it was created under (not `^5.0.1` — an exact pin, since even patch bumps can recompile the
+  account artifact). The system's default `aztec`/`aztec-wallet` CLI is 5.2.0 and **cannot** be used
+  for this account until/unless this is fixed upstream. A cleanly-reinstalled `5.0.1` exists at
+  `~/.aztec/versions/5.0.1` (the original one was corrupted — missing `node_modules` — and was
+  reinstalled 2026-09-27) but has **not yet been verified end-to-end** for actually sending a tx
+  (only used so far to compute `contractClassId` and confirm `deriveSecretKeyFromSigningKey`).
+
 ## Aztec V6 (AZUP-3) status — checked 2026-09-26, do not treat as current without re-checking
 
 - **V6 is not live anywhere yet.** Live `node_getNodeInfo` on testnet
